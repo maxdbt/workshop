@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Generatore di progetti - Workshop IoT</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tabler-icons/2.44.0/iconfont/tabler-icons.min.css">
+<style>
+  :root {
+    --bg-page: #F7F6F2;
+    --surface-1: #FFFFFF;
+    --surface-2: #FFFFFF;
+    --border: #E4E2DA;
+    --text-primary: #2C2C2A;
+    --text-secondary: #5F5E5A;
+    --text-muted: #888780;
+    --radius: 10px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg-page: #1C1C1A;
+      --surface-1: #2C2C2A;
+      --surface-2: #262624;
+      --border: #444441;
+      --text-primary: #F1EFE8;
+      --text-secondary: #B4B2A9;
+      --text-muted: #888780;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 2rem 1.25rem 4rem;
+    background: var(--bg-page);
+    color: var(--text-primary);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  .wrap { max-width: 900px; margin: 0 auto; }
+  h1 { font-size: 20px; font-weight: 500; margin: 0 0 4px; }
+  .sub { font-size: 14px; color: var(--text-secondary); margin: 0 0 1.5rem; }
+  #wheels { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; margin-bottom: 1.5rem; }
+  .card { background: var(--surface-2); border: 0.5px solid var(--border); border-radius: 12px; padding: 1rem 1.25rem; }
+  .badge { font-size: 12px; font-weight: 500; display: inline-block; padding: 2px 10px; border-radius: var(--radius); margin: 0 0 12px; }
+  .result { font-size: 16px; font-weight: 500; min-height: 44px; display: flex; align-items: center; }
+  button {
+    font-size: 14px; padding: 8px 14px; border-radius: var(--radius);
+    border: 0.5px solid var(--border); background: transparent; color: var(--text-primary);
+    cursor: pointer; font-family: inherit;
+  }
+  button:hover { background: var(--surface-1); }
+  button:active { transform: scale(0.98); }
+  .spin-row { display: flex; gap: 8px; margin-top: 12px; }
+  .spin-row button { flex: 1; }
+  details { margin-top: 10px; }
+  summary { font-size: 12px; color: var(--text-secondary); cursor: pointer; }
+  textarea {
+    width: 100%; min-height: 120px; margin-top: 8px; font-size: 13px; padding: 8px;
+    border-radius: var(--radius); border: 0.5px solid var(--border);
+    background: var(--surface-1); color: var(--text-primary); font-family: inherit;
+  }
+  .actions { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 1.5rem; }
+  .log-label { font-size: 13px; color: var(--text-secondary); margin: 0 0 8px; }
+  .log-row { display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: var(--surface-1); border-radius: var(--radius); font-size: 13px; margin-bottom: 6px; }
+  .log-row span:first-child { color: var(--text-muted); min-width: 18px; }
+  .empty { font-size: 13px; color: var(--text-muted); }
+  i.ti { font-size: 15px; vertical-align: -2px; margin-right: 6px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Generatore casuale di combinazioni</h1>
+  <p class="sub">Fase di divergenza — workshop use case IoT</p>
+
+  <div id="wheels"></div>
+
+  <div class="actions">
+    <button id="spinAll"><i class="ti ti-dice"></i>gira tutti i dadi</button>
+    <button id="saveCombo"><i class="ti ti-plus"></i>salva combinazione</button>
+    <button id="clearLog"><i class="ti ti-trash"></i>svuota registro</button>
+  </div>
+
+  <div>
+    <p class="log-label">registro combinazioni salvate</p>
+    <div id="log"></div>
+  </div>
+</div>
+
+<script>
+const cats = [
+  {
+    id: "Chi",
+    label: "Chi",
+    fill: "#EEEDFE", text: "#26215C",
+    items: ["Un'azienda manufatturiera", "Uno studio medico", "Un'azienda di logistica", "Fleet manager", "Responsabile di cantiere", "Responsabile di strategie ESG", "Gestore di infrastutture critiche", "Gestore di un servizio critico"]
+  },
+  {
+    id: "Problema",
+    label: "Problema",
+    fill: "#E1F5EE", text: "#04342C",
+    items: ["Si perdono degli asset", "Non si riesce a conoscere lo stato di alcuni macchinari", "Non si riesce sempre a garantire la sicurezza dei lavoratori", " La legge impone di misurare e rendicontare dei parametri", "Ci sono troppi elementi da monitorare a mano", "Restano delle luci accese inutilmente", "La legge impone di inquinare di meno", "E' difficile prevedere i flussi di persone" ]
+  },
+  {
+    id: "Soluzione possibile",
+    label: "Soluzione possibile",
+    fill: "#FBEAF0", text: "#4B1528",
+    items: ["Monitorare", "Misurare", "Comandare a distanza", "Rendicontare", "Prevedere"  ]
+  }
+];
+
+let state = {};
+cats.forEach(c => state[c.id] = null);
+let combos = [];
+
+function render() {
+  const wheels = document.getElementById("wheels");
+  wheels.innerHTML = "";
+  cats.forEach(c => {
+    const card = document.createElement("div");
+    card.className = "card";
+    card.innerHTML = `
+      <p class="badge" style="color:${c.text};background:${c.fill};">${c.label}</p>
+      <div class="result" id="result-${c.id}">&mdash;</div>
+      <div class="spin-row">
+        <button data-spin="${c.id}"><i class="ti ti-refresh"></i>gira</button>
+      </div>
+      <details>
+        <summary>modifica lista (${c.items.length} voci)</summary>
+        <textarea data-pool="${c.id}">${c.items.join("\n")}</textarea>
+      </details>
+    `;
+    wheels.appendChild(card);
+  });
+
+  wheels.querySelectorAll("[data-spin]").forEach(btn => {
+    btn.addEventListener("click", () => spin(btn.getAttribute("data-spin")));
+  });
+  wheels.querySelectorAll("[data-pool]").forEach(ta => {
+    ta.addEventListener("change", () => {
+      const cat = cats.find(c => c.id === ta.getAttribute("data-pool"));
+      cat.items = ta.value.split("\n").map(s => s.trim()).filter(Boolean);
+    });
+  });
+}
+
+function spin(id) {
+  const cat = cats.find(c => c.id === id);
+  const el = document.getElementById("result-" + id);
+  let ticks = 0;
+  const maxTicks = 14;
+  const interval = setInterval(() => {
+    const pick = cat.items[Math.floor(Math.random() * cat.items.length)];
+    el.textContent = pick;
+    ticks++;
+    if (ticks >= maxTicks) {
+      clearInterval(interval);
+      state[id] = pick;
+    }
+  }, 60);
+}
+
+function spinAll() {
+  cats.forEach(c => spin(c.id));
+}
+
+function saveCombo() {
+  if (cats.some(c => !state[c.id])) return;
+  const combo = cats.map(c => state[c.id]);
+  combos.unshift(combo);
+  renderLog();
+}
+
+function renderLog() {
+  const log = document.getElementById("log");
+  if (combos.length === 0) {
+    log.innerHTML = '<p class="empty">nessuna combinazione salvata</p>';
+    return;
+  }
+  log.innerHTML = combos.map((combo, i) => `
+    <div class="log-row">
+      <span>${combos.length - i}</span>
+      <span style="flex:1;">${combo.join(" &middot; ")}</span>
+    </div>
+  `).join("");
+}
+
+document.getElementById("spinAll").addEventListener("click", spinAll);
+document.getElementById("saveCombo").addEventListener("click", saveCombo);
+document.getElementById("clearLog").addEventListener("click", () => { combos = []; renderLog(); });
+
+render();
+renderLog();
+</script>
+</body>
+</html>
+
